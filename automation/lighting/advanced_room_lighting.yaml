@@ -52,34 +52,26 @@ blueprint:
     settle_time:
       name: Night Settling Time
       description: >
-        Duration (in seconds) to wait in the "dim" state at night before brightening.
+        Duration to wait in the "dim" state at night before brightening.
         This prevents jarring light changes during nighttime.
-      default: 30
+      default: 60
       selector:
-        number:
-          min: 0
-          max: 300
-          unit_of_measurement: seconds
-          mode: slider
+        duration:
     
     memory_duration:
       name: Memory Duration
       description: >
-        Duration (in seconds) that the automation should "remember" the last lighting 
+        Duration that the automation should "remember" the last lighting 
         state after you leave the room. If you return within this time, lights will 
         be restored to their previous state.
-      default: 300
+      default: 600
       selector:
-        number:
-          min: 30
-          max: 1800
-          unit_of_measurement: seconds
-          mode: slider
+        duration:
     
     dim_brightness_pct:
       name: Dim Brightness
       description: The brightness level (0-100%) for the intermediate "dim" state.
-      default: 20
+      default: 10
       selector:
         number:
           min: 1
@@ -101,7 +93,7 @@ blueprint:
     bright_brightness_pct:
       name: Bright Brightness
       description: The brightness level (0-100%) for the final "settled" or "bright" state.
-      default: 80
+      default: 100
       selector:
         number:
           min: 1
@@ -112,7 +104,7 @@ blueprint:
     bright_color_temp_kelvin:
       name: Bright Color Temperature
       description: The color temperature (in Kelvin) for the "settled" or "bright" state.
-      default: 4000
+      default: 3000
       selector:
         number:
           min: 2000
@@ -124,8 +116,21 @@ variables:
   # Generate unique scene ID based on area name for memory functionality
   memory_scene_id: >-
     {{ 'scene.blueprint_memory_' + area_name(light_target) | lower | replace(' ', '_') | replace('-', '_') }}
-  # Input values for template access
-  memory_duration: !input memory_duration
+  # Convert duration inputs to seconds for template access
+  memory_duration_seconds: >-
+    {% set duration = memory_duration %}
+    {% if duration is mapping %}
+      {{ (duration.days | default(0)) * 86400 + (duration.hours | default(0)) * 3600 + (duration.minutes | default(0)) * 60 + (duration.seconds | default(0)) }}
+    {% else %}
+      {{ duration | int }}
+    {% endif %}
+  settle_time_seconds: >-
+    {% set duration = settle_time %}
+    {% if duration is mapping %}
+      {{ (duration.days | default(0)) * 86400 + (duration.hours | default(0)) * 3600 + (duration.minutes | default(0)) * 60 + (duration.seconds | default(0)) }}
+    {% else %}
+      {{ duration | int }}
+    {% endif %}
 
 mode: single
 max_exceeded: silent
@@ -161,7 +166,7 @@ action:
                       {% set scene_state = states(scene_entity) %}
                       {% if scene_state not in ['unknown', 'unavailable'] %}
                         {% set last_changed = states[scene_entity].last_changed %}
-                        {{ (now() - last_changed).total_seconds() < memory_duration }}
+                        {{ (now() - last_changed).total_seconds() < memory_duration_seconds }}
                       {% else %}
                         false
                       {% endif %}
@@ -220,7 +225,7 @@ action:
                             state: "on"
                         sequence:
                           - delay:
-                              seconds: !input settle_time
+                              seconds: "{{ settle_time_seconds }}"
                           - service: light.turn_on
                             target:
                               area_id: !input light_target

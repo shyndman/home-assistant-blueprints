@@ -47,9 +47,9 @@ A highly responsive, comfortable, and intelligent lighting automation for a sing
 
 | Parameter | Description | Default | Range |
 |-----------|-------------|---------|-------|
-| **Settle Time** | Night mode settling duration before brightening | 30s | 0-300s |
-| **Memory Duration** | How long to remember previous lighting state | 300s | 30-1800s |
-| **Dim Brightness** | Brightness for intermediate dim state | 20% | 1-100% |
+| **Settle Time** | Night mode settling duration before brightening | 60s | Any duration |
+| **Memory Duration** | How long to remember previous lighting state | 600s (10min) | Any duration |
+| **Dim Brightness** | Brightness for intermediate dim state | 10% | 1-100% |
 | **Dim Color Temperature** | Color temperature for dim state | 2700K | 2000-6500K |
 | **Bright Brightness** | Brightness for final bright state | 80% | 1-100% |
 | **Bright Color Temperature** | Color temperature for bright state | 4000K | 2000-6500K |
