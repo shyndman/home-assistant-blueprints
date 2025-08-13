@@ -1,5 +1,5 @@
 blueprint:
-  name: Two-Stage Presence Room Lighting
+  name: Presence-Aware Room Lighting
   description: >
     A highly responsive, comfortable, and intelligent lighting automation for a single room
     that uses two-stage presence detection (radar + camera) with self-contained state memory.

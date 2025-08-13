@@ -6,7 +6,7 @@ This repository contains a collection of Home Assistant blueprints.
 
 All blueprints can be found in the `/blueprints` directory.
 
-### Advanced Room Lighting Blueprint
+### Presence-Aware Room Lighting Blueprint
 
 A highly responsive, comfortable, and intelligent lighting automation for a single room that uses two-stage presence detection with self-contained state memory.
 
