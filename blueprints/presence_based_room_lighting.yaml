@@ -1,5 +1,11 @@
 blueprint:
+<<<<<<< HEAD
   name: Advanced Room Lighting
+||||||| parent of a099d7f (.)
+  name: Two-Stage Presence Room Detection
+=======
+  name: Two-Stage Presence Room Lighting
+>>>>>>> a099d7f (.)
   description: >
     A highly responsive, comfortable, and intelligent lighting automation for a single room
     that uses two-stage presence detection (radar + camera) with self-contained state memory.
@@ -7,7 +13,7 @@ blueprint:
     restoration when quickly returning to a room.
   domain: automation
   author: Home Assistant Community
-  source_url: https://github.com/shyndman/home-assistant-blueprints/blob/main/automation/lighting/advanced_room_lighting.yaml
+  source_url: https://github.com/shyndman/home-assistant-blueprints/blob/main/blueprints/presence_based_room_lighting.yaml
   input:
     light_target:
       name: Light Target Area
@@ -65,6 +71,15 @@ blueprint:
         state after you leave the room. If you return within this time, lights will 
         be restored to their previous state.
       default: 600
+      selector:
+        duration:
+    
+    presence_confirm_timeout:
+      name: Presence Confirmation Timeout
+      description: >
+        Duration to wait for the camera sensor to confirm presence after initial radar detection.
+        If no confirmation within this time, lights will turn off.
+      default: 30
       selector:
         duration:
     
@@ -202,7 +217,7 @@ action:
                   - platform: state
                     entity_id: !input camera_person_sensor
                     to: "on"
-                timeout: 5
+                timeout: !input presence_confirm_timeout
                 continue_on_timeout: true
               
               - choose:
