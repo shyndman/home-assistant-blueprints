@@ -1,11 +1,5 @@
 blueprint:
-<<<<<<< HEAD
-  name: Advanced Room Lighting
-||||||| parent of a099d7f (.)
-  name: Two-Stage Presence Room Detection
-=======
   name: Two-Stage Presence Room Lighting
->>>>>>> a099d7f (.)
   description: >
     A highly responsive, comfortable, and intelligent lighting automation for a single room
     that uses two-stage presence detection (radar + camera) with self-contained state memory.
@@ -18,7 +12,7 @@ blueprint:
     light_target:
       name: Light Target Area
       description: >
-        The area to control. The blueprint will automatically target all light and switch 
+        The area to control. The blueprint will automatically target all light and switch
         entities within the selected area, making configuration simple and scalable.
       selector:
         area:
@@ -26,35 +20,35 @@ blueprint:
           entity:
             - domain: light
             - domain: switch
-    
+
     radar_sensor:
       name: Radar Presence Sensor
       description: >
-        The entity ID of the imprecise, fast-reacting presence sensor (e.g., a millimeter-wave 
+        The entity ID of the imprecise, fast-reacting presence sensor (e.g., a millimeter-wave
         radar binary_sensor). This sensor triggers the initial room entry detection.
       selector:
         entity:
           domain: binary_sensor
-    
+
     camera_person_sensor:
       name: Camera Person Sensor
       description: >
-        The entity ID of the vision-based sensor that confirms human presence (e.g., a 
+        The entity ID of the vision-based sensor that confirms human presence (e.g., a
         binary_sensor from a camera with person detection). This provides precise confirmation
         that a person is actually present.
       selector:
         entity:
           domain: binary_sensor
-    
+
     night_mode_sensor:
       name: Night Mode Sensor
       description: >
-        The entity ID of a binary_sensor that is 'on' when it is nighttime. This allows 
+        The entity ID of a binary_sensor that is 'on' when it is nighttime. This allows
         you to define "night" in any way you choose (time-based, sun-based, etc.).
       selector:
         entity:
           domain: binary_sensor
-    
+
     settle_time:
       name: Night Settling Time
       description: >
@@ -63,17 +57,17 @@ blueprint:
       default: 60
       selector:
         duration:
-    
+
     memory_duration:
       name: Memory Duration
       description: >
-        Duration that the automation should "remember" the last lighting 
-        state after you leave the room. If you return within this time, lights will 
+        Duration that the automation should "remember" the last lighting
+        state after you leave the room. If you return within this time, lights will
         be restored to their previous state.
       default: 600
       selector:
         duration:
-    
+
     presence_confirm_timeout:
       name: Presence Confirmation Timeout
       description: >
@@ -82,7 +76,7 @@ blueprint:
       default: 30
       selector:
         duration:
-    
+
     dim_brightness_pct:
       name: Dim Brightness
       description: The brightness level (0-100%) for the intermediate "dim" state.
@@ -93,7 +87,7 @@ blueprint:
           max: 100
           unit_of_measurement: "%"
           mode: slider
-    
+
     dim_color_temp_kelvin:
       name: Dim Color Temperature
       description: The color temperature (in Kelvin) for the "dim" state.
@@ -104,7 +98,7 @@ blueprint:
           max: 6500
           unit_of_measurement: "K"
           mode: box
-    
+
     bright_brightness_pct:
       name: Bright Brightness
       description: The brightness level (0-100%) for the final "settled" or "bright" state.
@@ -115,7 +109,7 @@ blueprint:
           max: 100
           unit_of_measurement: "%"
           mode: slider
-    
+
     bright_color_temp_kelvin:
       name: Bright Color Temperature
       description: The color temperature (in Kelvin) for the "settled" or "bright" state.
@@ -157,8 +151,8 @@ trigger:
     from: "off"
     to: "on"
     id: "radar_on"
-  
-  # Trigger 2: Camera confirms person left (user exits room)  
+
+  # Trigger 2: Camera confirms person left (user exits room)
   - platform: state
     entity_id: !input camera_person_sensor
     from: "on"
@@ -190,12 +184,12 @@ action:
                   - service: scene.turn_on
                     target:
                       entity_id: "{{ memory_scene_id }}"
-                  
+
                   # Clean up memory scene
                   - service: scene.delete
                     data:
                       entity_id: "{{ memory_scene_id }}"
-            
+
             # No recent memory - start fresh lighting sequence
             default:
               # Optional cleanup of any stale memory
@@ -203,7 +197,7 @@ action:
                 data:
                   entity_id: "{{ memory_scene_id }}"
                 continue_on_error: true
-              
+
               # Set initial dim state
               - service: light.turn_on
                 target:
@@ -211,7 +205,7 @@ action:
                 data:
                   brightness_pct: !input dim_brightness_pct
                   color_temp_kelvin: !input dim_color_temp_kelvin
-              
+
               # Wait for camera to confirm person presence
               - wait_for_trigger:
                   - platform: state
@@ -219,7 +213,7 @@ action:
                     to: "on"
                 timeout: !input presence_confirm_timeout
                 continue_on_timeout: true
-              
+
               - choose:
                   # If wait timed out (no person detected), turn lights off
                   - conditions:
@@ -229,7 +223,7 @@ action:
                       - service: light.turn_off
                         target:
                           area_id: !input light_target
-                
+
                 # Person confirmed - proceed to bright state
                 default:
                   - choose:
@@ -247,7 +241,7 @@ action:
                             data:
                               brightness_pct: !input bright_brightness_pct
                               color_temp_kelvin: !input bright_color_temp_kelvin
-                    
+
                     # Day mode: immediately go to bright state
                     default:
                       - service: light.turn_on
@@ -274,7 +268,7 @@ action:
                   {%- endif -%}
                 {%- endfor -%}
                 {{ entities }}
-          
+
           # Immediately dim the lights
           - service: light.turn_on
             target:
@@ -282,13 +276,13 @@ action:
             data:
               brightness_pct: !input dim_brightness_pct
               color_temp_kelvin: !input dim_color_temp_kelvin
-          
+
           # Wait for radar to confirm room is empty
           - wait_for_trigger:
               - platform: state
                 entity_id: !input radar_sensor
                 to: "off"
-          
+
           # Turn lights off (memory scene is left for potential restoration)
           - service: light.turn_off
             target:
