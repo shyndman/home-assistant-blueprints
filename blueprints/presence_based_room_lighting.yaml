@@ -1,0 +1,280 @@
+blueprint:
+  name: Advanced Room Lighting
+  description: >
+    A highly responsive, comfortable, and intelligent lighting automation for a single room
+    that uses two-stage presence detection (radar + camera) with self-contained state memory.
+    Features instant-on capabilities, night mode settling periods, and automatic memory
+    restoration when quickly returning to a room.
+  domain: automation
+  author: Home Assistant Community
+  source_url: https://github.com/shyndman/home-assistant-blueprints/blob/main/automation/lighting/advanced_room_lighting.yaml
+  input:
+    light_target:
+      name: Light Target Area
+      description: >
+        The area to control. The blueprint will automatically target all light and switch 
+        entities within the selected area, making configuration simple and scalable.
+      selector:
+        area:
+          multiple: false
+          entity:
+            - domain: light
+            - domain: switch
+    
+    radar_sensor:
+      name: Radar Presence Sensor
+      description: >
+        The entity ID of the imprecise, fast-reacting presence sensor (e.g., a millimeter-wave 
+        radar binary_sensor). This sensor triggers the initial room entry detection.
+      selector:
+        entity:
+          domain: binary_sensor
+    
+    camera_person_sensor:
+      name: Camera Person Sensor
+      description: >
+        The entity ID of the vision-based sensor that confirms human presence (e.g., a 
+        binary_sensor from a camera with person detection). This provides precise confirmation
+        that a person is actually present.
+      selector:
+        entity:
+          domain: binary_sensor
+    
+    night_mode_sensor:
+      name: Night Mode Sensor
+      description: >
+        The entity ID of a binary_sensor that is 'on' when it is nighttime. This allows 
+        you to define "night" in any way you choose (time-based, sun-based, etc.).
+      selector:
+        entity:
+          domain: binary_sensor
+    
+    settle_time:
+      name: Night Settling Time
+      description: >
+        Duration to wait in the "dim" state at night before brightening.
+        This prevents jarring light changes during nighttime.
+      default: 60
+      selector:
+        duration:
+    
+    memory_duration:
+      name: Memory Duration
+      description: >
+        Duration that the automation should "remember" the last lighting 
+        state after you leave the room. If you return within this time, lights will 
+        be restored to their previous state.
+      default: 600
+      selector:
+        duration:
+    
+    dim_brightness_pct:
+      name: Dim Brightness
+      description: The brightness level (0-100%) for the intermediate "dim" state.
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+    
+    dim_color_temp_kelvin:
+      name: Dim Color Temperature
+      description: The color temperature (in Kelvin) for the "dim" state.
+      default: 2700
+      selector:
+        number:
+          min: 2000
+          max: 6500
+          unit_of_measurement: "K"
+          mode: box
+    
+    bright_brightness_pct:
+      name: Bright Brightness
+      description: The brightness level (0-100%) for the final "settled" or "bright" state.
+      default: 100
+      selector:
+        number:
+          min: 1
+          max: 100
+          unit_of_measurement: "%"
+          mode: slider
+    
+    bright_color_temp_kelvin:
+      name: Bright Color Temperature
+      description: The color temperature (in Kelvin) for the "settled" or "bright" state.
+      default: 3000
+      selector:
+        number:
+          min: 2000
+          max: 6500
+          unit_of_measurement: "K"
+          mode: box
+
+variables:
+  # Generate unique scene ID based on area name for memory functionality
+  memory_scene_id: >-
+    {{ 'scene.blueprint_memory_' + area_name(light_target) | lower | replace(' ', '_') | replace('-', '_') }}
+  # Convert duration inputs to seconds for template access
+  memory_duration_seconds: >-
+    {% set duration = memory_duration %}
+    {% if duration is mapping %}
+      {{ (duration.days | default(0)) * 86400 + (duration.hours | default(0)) * 3600 + (duration.minutes | default(0)) * 60 + (duration.seconds | default(0)) }}
+    {% else %}
+      {{ duration | int }}
+    {% endif %}
+  settle_time_seconds: >-
+    {% set duration = settle_time %}
+    {% if duration is mapping %}
+      {{ (duration.days | default(0)) * 86400 + (duration.hours | default(0)) * 3600 + (duration.minutes | default(0)) * 60 + (duration.seconds | default(0)) }}
+    {% else %}
+      {{ duration | int }}
+    {% endif %}
+
+mode: single
+max_exceeded: silent
+
+trigger:
+  # Trigger 1: Radar sensor detects movement (user enters room)
+  - platform: state
+    entity_id: !input radar_sensor
+    from: "off"
+    to: "on"
+    id: "radar_on"
+  
+  # Trigger 2: Camera confirms person left (user exits room)  
+  - platform: state
+    entity_id: !input camera_person_sensor
+    from: "on"
+    to: "off"
+    id: "person_left"
+
+action:
+  - choose:
+      # SCENARIO 1: User Enters Room (radar_on)
+      - conditions:
+          - condition: trigger
+            id: "radar_on"
+        sequence:
+          - choose:
+              # Check if recent memory exists and restore it
+              - conditions:
+                  - condition: template
+                    value_template: >-
+                      {% set scene_entity = memory_scene_id %}
+                      {% set scene_state = states(scene_entity) %}
+                      {% if scene_state not in ['unknown', 'unavailable'] %}
+                        {% set last_changed = states[scene_entity].last_changed %}
+                        {{ (now() - last_changed).total_seconds() < memory_duration_seconds }}
+                      {% else %}
+                        false
+                      {% endif %}
+                sequence:
+                  # Restore previous lighting state
+                  - service: scene.turn_on
+                    target:
+                      entity_id: "{{ memory_scene_id }}"
+                  
+                  # Clean up memory scene
+                  - service: scene.delete
+                    data:
+                      entity_id: "{{ memory_scene_id }}"
+            
+            # No recent memory - start fresh lighting sequence
+            default:
+              # Optional cleanup of any stale memory
+              - service: scene.delete
+                data:
+                  entity_id: "{{ memory_scene_id }}"
+                continue_on_error: true
+              
+              # Set initial dim state
+              - service: light.turn_on
+                target:
+                  area_id: !input light_target
+                data:
+                  brightness_pct: !input dim_brightness_pct
+                  color_temp_kelvin: !input dim_color_temp_kelvin
+              
+              # Wait for camera to confirm person presence
+              - wait_for_trigger:
+                  - platform: state
+                    entity_id: !input camera_person_sensor
+                    to: "on"
+                timeout: 5
+                continue_on_timeout: true
+              
+              - choose:
+                  # If wait timed out (no person detected), turn lights off
+                  - conditions:
+                      - condition: template
+                        value_template: "{{ not wait.completed }}"
+                    sequence:
+                      - service: light.turn_off
+                        target:
+                          area_id: !input light_target
+                
+                # Person confirmed - proceed to bright state
+                default:
+                  - choose:
+                      # Night mode: wait before brightening
+                      - conditions:
+                          - condition: state
+                            entity_id: !input night_mode_sensor
+                            state: "on"
+                        sequence:
+                          - delay:
+                              seconds: "{{ settle_time_seconds }}"
+                          - service: light.turn_on
+                            target:
+                              area_id: !input light_target
+                            data:
+                              brightness_pct: !input bright_brightness_pct
+                              color_temp_kelvin: !input bright_color_temp_kelvin
+                    
+                    # Day mode: immediately go to bright state
+                    default:
+                      - service: light.turn_on
+                        target:
+                          area_id: !input light_target
+                        data:
+                          brightness_pct: !input bright_brightness_pct
+                          color_temp_kelvin: !input bright_color_temp_kelvin
+
+      # SCENARIO 2: User Exits Room (person_left)
+      - conditions:
+          - condition: trigger
+            id: "person_left"
+        sequence:
+          # Create memory snapshot of current lighting state
+          - service: scene.create
+            data:
+              scene_id: "{{ memory_scene_id.split('.')[1] }}"
+              snapshot_entities: >-
+                {%- set entities = [] -%}
+                {%- for entity in area_entities(light_target) -%}
+                  {%- if entity.startswith('light.') or entity.startswith('switch.') -%}
+                    {%- set entities = entities + [entity] -%}
+                  {%- endif -%}
+                {%- endfor -%}
+                {{ entities }}
+          
+          # Immediately dim the lights
+          - service: light.turn_on
+            target:
+              area_id: !input light_target
+            data:
+              brightness_pct: !input dim_brightness_pct
+              color_temp_kelvin: !input dim_color_temp_kelvin
+          
+          # Wait for radar to confirm room is empty
+          - wait_for_trigger:
+              - platform: state
+                entity_id: !input radar_sensor
+                to: "off"
+          
+          # Turn lights off (memory scene is left for potential restoration)
+          - service: light.turn_off
+            target:
+              area_id: !input light_target
