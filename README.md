@@ -51,5 +51,5 @@ A highly responsive, comfortable, and intelligent lighting automation for a sing
 | **Memory Duration** | How long to remember previous lighting state | 600s (10min) | Any duration |
 | **Dim Brightness** | Brightness for intermediate dim state | 10% | 1-100% |
 | **Dim Color Temperature** | Color temperature for dim state | 2700K | 2000-6500K |
-| **Bright Brightness** | Brightness for final bright state | 80% | 1-100% |
+| **Bright Brightness** | Brightness for final bright state | 100% | 1-100% |
 | **Bright Color Temperature** | Color temperature for bright state | 3000K | 2000-6500K |
