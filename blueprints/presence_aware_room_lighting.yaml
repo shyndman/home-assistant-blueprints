@@ -7,19 +7,18 @@ blueprint:
     restoration when quickly returning to a room.
   domain: automation
   author: Home Assistant Community
-  source_url: https://github.com/shyndman/home-assistant-blueprints/blob/main/blueprints/presence_based_room_lighting.yaml
+  source_url: https://github.com/shyndman/home-assistant-blueprints/blob/main/blueprints/presence_aware_room_lighting.yaml
   input:
     light_target:
       name: Light Target Area
       description: >
-        The area to control. The blueprint will automatically target all light and switch
+        The area to control. The blueprint will automatically target all light
         entities within the selected area, making configuration simple and scalable.
       selector:
         area:
           multiple: false
           entity:
             - domain: light
-            - domain: switch
 
     radar_sensor:
       name: Radar Presence Sensor
@@ -122,6 +121,9 @@ blueprint:
           mode: box
 
 variables:
+  light_target: !input light_target
+  memory_duration: !input memory_duration
+  settle_time: !input settle_time
   # Generate unique scene ID based on area name for memory functionality
   memory_scene_id: >-
     {{ 'scene.blueprint_memory_' + area_name(light_target) | lower | replace(' ', '_') | replace('-', '_') }}
@@ -141,9 +143,8 @@ variables:
       {{ duration | int }}
     {% endif %}
 
-mode: single
+mode: restart
 max_exceeded: silent
-
 trigger:
   # Trigger 1: Radar sensor detects movement (user enters room)
   - platform: state
@@ -263,7 +264,7 @@ action:
               snapshot_entities: >-
                 {%- set entities = [] -%}
                 {%- for entity in area_entities(light_target) -%}
-                  {%- if entity.startswith('light.') or entity.startswith('switch.') -%}
+                  {%- if entity.startswith('light.') -%}
                     {%- set entities = entities + [entity] -%}
                   {%- endif -%}
                 {%- endfor -%}
@@ -282,6 +283,7 @@ action:
               - platform: state
                 entity_id: !input radar_sensor
                 to: "off"
+            timeout: 60
 
           # Turn lights off (memory scene is left for potential restoration)
           - service: light.turn_off
