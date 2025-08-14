@@ -63,7 +63,7 @@ blueprint:
         Duration that the automation should "remember" the last lighting
         state after you leave the room. If you return within this time, lights will
         be restored to their previous state.
-      default: 600
+      default: 00:15:00
       selector:
         duration:
 
@@ -72,7 +72,7 @@ blueprint:
       description: >
         Duration to wait for the camera sensor to confirm presence after initial radar detection.
         If no confirmation within this time, lights will turn off.
-      default: 30
+      default: 00:00:30
       selector:
         duration:
 
